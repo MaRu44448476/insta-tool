@@ -1,0 +1,105 @@
+# Instagram Trend Research Script – Risks and Mitigation (machine-readable)
+
+risks:
+  - id: 1
+    title: "Instagram block / UI change"
+    potential_errors:
+      - "429 Too Many Requests"
+      - "Parsing failure due to HTML structure change"
+    mitigations:
+      - "Enable request delay (2–5 s random) via Instaloader's --request-delay or custom wrapper"
+      - "Centralise all HTML parsing / API calls into one module so changes are patched once"
+      - "Apply exponential back-off; retry up to 3 times, then log & skip"
+
+  - id: 2
+    title: "Login requirement or auth revoked"
+    potential_errors:
+      - "LoginRequiredException"
+    mitigations:
+      - "Default to no-login; only login when --login flag & credentials present"
+      - "Cache session cookies; auto re-login on expiry"
+
+  - id: 3
+    title: "High post volume → memory exhaustion"
+    potential_errors:
+      - "Out-Of-Memory when loading DataFrame"
+    mitigations:
+      - "Stream posts and filter on-the-fly; discard non-matches immediately"
+      - "Hold only top-N in a bounded heap (heapq.nlargest)"
+
+  - id: 4
+    title: "Invalid / non-existent tag"
+    potential_errors:
+      - "ProfileNotExistsException"
+    mitigations:
+      - "Wrap each tag retrieval in try/except and report failures at end"
+
+  - id: 5
+    title: "Date parse & timezone mismatch"
+    potential_errors:
+      - "Posts outside desired window included"
+    mitigations:
+      - "Use dateutil.isoparse → UTC before compare"
+      - "Reject ambiguous date formats; show correct example"
+
+  - id: 6
+    title: "File write permissions & encoding"
+    potential_errors:
+      - "PermissionError"
+      - "CSV garbled characters"
+    mitigations:
+      - "Resolve & verify output path writeability"
+      - "CSV utf-8-sig, JSON ensure_ascii=False"
+
+  - id: 7
+    title: "Slack webhook failure"
+    potential_errors:
+      - "HTTP 4xx/5xx from Slack"
+    mitigations:
+      - "Send asynchronously with 5 s timeout"
+      - "Log failure and provide manual retry command"
+
+  - id: 8
+    title: "Dependency updates break API"
+    potential_errors:
+      - "instaloader API signature change"
+    mitigations:
+      - "Pin versions in requirements.txt (e.g., instaloader==4.11)"
+      - "Run CI test fetching a sample tag on every push"
+
+  - id: 9
+    title: "User input validation"
+    potential_errors:
+      - "Invalid date string"
+      - "Negative top value"
+    mitigations:
+      - "CLI validation (Click/argparse)"
+      - "Custom validate_args() to check logical consistency"
+
+  - id: 10
+    title: "Unicode / emoji issues"
+    potential_errors:
+      - "EncodingError on output"
+    mitigations:
+      - "Cast all strings via str() before export"
+      - "Specify errors='replace' on file write"
+
+  - id: 11
+    title: "Unhandled exceptions"
+    potential_errors:
+      - "Script crash without info"
+    mitigations:
+      - "Wrap main in try/except Exception; log stacktrace when --debug"
+      - "Return non-zero exit code on fatal errors"
+
+coding_practices:
+  - "Package modules: cli.py, fetcher.py, processor.py, exporter.py for testability"
+  - "Use PEP 604 type hints + mypy --strict; run ruff for lint"
+  - "Represent Post metadata as @dataclass for type safety"
+  - "Unit tests with pytest; mock HTTP with responses"
+  - "CI: mypy, ruff, pytest against locked dependencies"
+
+operational_guardrails:
+  - "Throttle overall requests/HR to avoid IP block; if threshold exceeded, sleep"
+  - "Abort run if error rate >30% and notify"
+  - "Prefix Slack alerts with status flags like (Partial Failure)"

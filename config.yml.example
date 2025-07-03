@@ -1,0 +1,27 @@
+# Instagram Trend Tool Configuration Example
+
+# Instagram credentials (optional - only if login is required)
+# instagram_username: your_username
+# instagram_password: your_password
+
+# Slack webhook URL (optional - for notifications)
+# slack_webhook_url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# Default parameters
+default_top_count: 50
+default_days_back: 30
+
+# Request delays (seconds) - to avoid rate limiting
+request_delay_min: 2.0
+request_delay_max: 5.0
+
+# Retry settings
+max_retries: 3
+retry_delay: 10.0
+
+# Output settings
+output_dir: output
+
+# Logging
+log_level: INFO
+# log_file: instagram_trend.log

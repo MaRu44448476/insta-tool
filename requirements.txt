@@ -1,0 +1,7 @@
+instaloader==4.11
+pandas==2.2.2
+python-dateutil==2.9.0
+click==8.1.7
+python-dotenv==1.0.1
+slack-sdk==3.27.1
+pyyaml==6.0.1
