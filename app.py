@@ -120,7 +120,7 @@ def init_output_dir():
     output_dir.mkdir(exist_ok=True)
     return output_dir
 
-def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
+def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0, demo_mode=False):
     """Instagram分析を実行"""
     if not INSTA_MODULES_AVAILABLE:
         return False, "", "必要なモジュールが利用できません"
@@ -148,8 +148,8 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
             try:
                 st.info(f"ハッシュタグ #{hashtag_clean} を検索中...")
                 
-                # 実際のInstagram APIを使用
-                if False:  # デモモード（実運用では False）
+                # デモモード切り替え
+                if demo_mode:
                     # ダミー投稿データを生成
                     import random
                     dummy_posts = []
@@ -196,9 +196,20 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
                         else:
                             st.warning(f"#{hashtag_clean}: 投稿が見つかりませんでした")
                     except Exception as api_error:
-                        st.error(f"#{hashtag_clean}: API取得エラー - {str(api_error)}")
+                        error_msg = str(api_error)
+                        st.error(f"#{hashtag_clean}: API取得エラー - {error_msg}")
+                        
+                        # ログイン必須エラーの場合
+                        if "login_required" in error_msg or "403" in error_msg:
+                            st.warning("⚠️ Instagramでログインが必要です。以下の方法をお試しください：")
+                            st.info("""
+                            **解決方法：**
+                            1. 一時的にデモモードで動作確認
+                            2. Instagram認証情報の設定（管理者のみ）
+                            3. しばらく時間をおいてから再試行
+                            """)
                         # レート制限の場合の対処法を表示
-                        if "429" in str(api_error) or "rate" in str(api_error).lower():
+                        elif "429" in error_msg or "rate" in error_msg.lower():
                             st.info("💡 Instagramのレート制限に達しました。しばらく時間をおいてから再試行してください。")
                         continue
                     
@@ -297,6 +308,10 @@ output_dir = init_output_dir()
 # サイドバーで詳細設定（PCユーザー向け）
 with st.sidebar:
     st.header("⚙️ 詳細設定")
+    
+    # デモモード切り替え
+    demo_mode = st.checkbox("デモモード", value=False, help="実際のAPIでエラーが発生する場合はこちらを有効にしてください")
+    
     advanced_mode = st.checkbox("詳細設定を表示")
     
     if advanced_mode:
@@ -402,7 +417,7 @@ if st.button("🚀 分析開始", type="primary", use_container_width=True):
                 
                 # 分析実行
                 success, message, error = run_analysis(
-                    hashtag_list, custom_days, top_count, output_format, min_likes
+                    hashtag_list, custom_days, top_count, output_format, min_likes, demo_mode
                 )
                 
                 progress_bar.progress(70)
