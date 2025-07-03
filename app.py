@@ -166,16 +166,54 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
             hashtag_clean = hashtag.strip().replace('#', '')
             
             try:
-                result = fetcher.fetch_hashtag_posts(
-                    hashtag_clean, 
-                    top_count, 
-                    since_date
-                )
+                st.info(f"ハッシュタグ #{hashtag_clean} を検索中...")
                 
-                if result.posts:
+                # デモモード: 実際のInstagram APIの代わりにダミーデータを生成
+                if True:  # デモモード
+                    # ダミー投稿データを生成
+                    import random
+                    dummy_posts = []
+                    for i in range(min(top_count, 20)):  # 最大20件のダミーデータ
+                        post = InstagramPost(
+                            shortcode=f"dummy_{hashtag_clean}_{i}",
+                            post_url=f"https://www.instagram.com/p/dummy_{hashtag_clean}_{i}/",
+                            owner_username=f"user_{i}",
+                            owner_id=f"id_{i}",
+                            posted_at=datetime.now() - timedelta(days=random.randint(1, period_days or 30)),
+                            likes=random.randint(100, 10000),
+                            comments=random.randint(10, 500),
+                            caption=f"#{hashtag_clean}の投稿サンプル {i+1}",
+                            hashtags=[hashtag_clean],
+                            is_video=random.choice([True, False])
+                        )
+                        dummy_posts.append(post)
+                    
+                    # ダミー結果を作成
+                    result = TrendAnalysisResult(
+                        hashtags=[hashtag_clean],
+                        posts=dummy_posts,
+                        total_posts=len(dummy_posts),
+                        collection_date=datetime.now()
+                    )
+                    
+                    st.success(f"#{hashtag_clean}: {len(result.posts)}件取得（デモデータ）")
                     analysis_results.append(result)
+                else:
+                    # 実際のAPIを使用
+                    result = fetcher.fetch_hashtag_posts(
+                        hashtag_clean, 
+                        top_count, 
+                        since_date
+                    )
+                    
+                    if result.posts:
+                        st.success(f"#{hashtag_clean}: {len(result.posts)}件取得")
+                        analysis_results.append(result)
+                    else:
+                        st.warning(f"#{hashtag_clean}: 投稿が見つかりませんでした")
                     
             except Exception as e:
+                st.error(f"#{hashtag_clean}: エラー - {str(e)}")
                 continue
         
         if not analysis_results:
