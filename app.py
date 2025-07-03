@@ -248,7 +248,16 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
         
         # エクスポート
         exporter = TrendExporter(config)
-        output_path = exporter.export_data(processed_result, output_format)
+        
+        # 出力形式に応じてエクスポート
+        if output_format == "csv":
+            output_path = exporter.export_to_csv(processed_result)
+        elif output_format == "excel":
+            output_path = exporter.export_to_excel(processed_result)
+        elif output_format == "json":
+            output_path = exporter.export_to_json(processed_result)
+        else:
+            output_path = exporter.export_to_csv(processed_result)  # デフォルト
         
         return True, f"分析完了: {len(processed_result.posts)}件の投稿を処理", ""
         
