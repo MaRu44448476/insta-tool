@@ -36,7 +36,7 @@ except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ config: {e}\n"
 
 try:
-    from insta_trend_tool.models import AnalysisResult, PostData
+    from insta_trend_tool.models import TrendAnalysisResult, InstagramPost
     st.info("✅ models インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ models: {e}\n"
@@ -48,13 +48,13 @@ except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ fetcher: {e}\n"
 
 try:
-    from insta_trend_tool.processor import DataProcessor
+    from insta_trend_tool.processor import TrendProcessor
     st.info("✅ processor インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ processor: {e}\n"
 
 try:
-    from insta_trend_tool.exporter import DataExporter
+    from insta_trend_tool.exporter import TrendExporter
     st.info("✅ exporter インポート成功")
     INSTA_MODULES_AVAILABLE = True
 except ImportError as e:
@@ -159,7 +159,7 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
         
         # 各ハッシュタグについて分析
         fetcher = InstagramFetcher(config)
-        processor = DataProcessor(config)
+        processor = TrendProcessor(config)
         
         for hashtag in hashtags:
             # ハッシュタグからデータ取得
@@ -182,7 +182,7 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
             return False, "", "投稿データが取得できませんでした"
         
         # データ処理
-        analysis_result = AnalysisResult(
+        analysis_result = TrendAnalysisResult(
             hashtags=hashtags,
             posts=all_posts,
             total_posts=len(all_posts),
@@ -200,7 +200,7 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
         processed_result = processor.process_posts(analysis_result)
         
         # エクスポート
-        exporter = DataExporter(config)
+        exporter = TrendExporter(config)
         output_path = exporter.export_data(processed_result, output_format)
         
         return True, f"分析完了: {len(processed_result.posts)}件の投稿を処理", ""
