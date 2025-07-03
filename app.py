@@ -25,58 +25,38 @@ IMPORT_ERROR_MSG = ""
 
 try:
     import instaloader
-    st.info("✅ instaloader インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ instaloader: {e}\n"
 
 try:
     from insta_trend_tool.config import Config
-    st.info("✅ config インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ config: {e}\n"
 
 try:
     from insta_trend_tool.models import TrendAnalysisResult, InstagramPost
-    st.info("✅ models インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ models: {e}\n"
 
 try:
     from insta_trend_tool.fetcher import InstagramFetcher
-    st.info("✅ fetcher インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ fetcher: {e}\n"
 
 try:
     from insta_trend_tool.processor import TrendProcessor
-    st.info("✅ processor インポート成功")
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ processor: {e}\n"
 
 try:
     from insta_trend_tool.exporter import TrendExporter
-    st.info("✅ exporter インポート成功")
     INSTA_MODULES_AVAILABLE = True
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ exporter: {e}\n"
 
 if IMPORT_ERROR_MSG:
-    st.error(f"モジュールインポートエラー:\n{IMPORT_ERROR_MSG}")
-    st.info("デバッグ: 現在の作業ディレクトリとPythonパスを確認中...")
-    
-    # デバッグ情報表示
-    import sys
-    st.write("Python path:", sys.path)
-    st.write("Current working directory:", os.getcwd())
-    
-    # ディレクトリ構造確認
-    try:
-        import glob
-        st.write("ファイル一覧:", glob.glob("*"))
-        if os.path.exists("insta_trend_tool"):
-            st.write("insta_trend_tool内容:", glob.glob("insta_trend_tool/*"))
-    except Exception as e:
-        st.write(f"ディレクトリ確認エラー: {e}")
+    st.error(f"必要なモジュールの読み込みに失敗しました:\n{IMPORT_ERROR_MSG}")
+    st.stop()
 
 try:
     import yaml
@@ -168,8 +148,8 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
             try:
                 st.info(f"ハッシュタグ #{hashtag_clean} を検索中...")
                 
-                # デモモード: 実際のInstagram APIの代わりにダミーデータを生成
-                if True:  # デモモード
+                # 実際のInstagram APIを使用
+                if False:  # デモモード（実運用では False）
                     # ダミー投稿データを生成
                     import random
                     dummy_posts = []
@@ -203,17 +183,24 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
                     analysis_results.append(result)
                 else:
                     # 実際のAPIを使用
-                    result = fetcher.fetch_hashtag_posts(
-                        hashtag_clean, 
-                        top_count, 
-                        since_date
-                    )
-                    
-                    if result.posts:
-                        st.success(f"#{hashtag_clean}: {len(result.posts)}件取得")
-                        analysis_results.append(result)
-                    else:
-                        st.warning(f"#{hashtag_clean}: 投稿が見つかりませんでした")
+                    try:
+                        result = fetcher.fetch_hashtag_posts(
+                            hashtag_clean, 
+                            top_count, 
+                            since_date
+                        )
+                        
+                        if result.posts:
+                            st.success(f"#{hashtag_clean}: {len(result.posts)}件取得")
+                            analysis_results.append(result)
+                        else:
+                            st.warning(f"#{hashtag_clean}: 投稿が見つかりませんでした")
+                    except Exception as api_error:
+                        st.error(f"#{hashtag_clean}: API取得エラー - {str(api_error)}")
+                        # レート制限の場合の対処法を表示
+                        if "429" in str(api_error) or "rate" in str(api_error).lower():
+                            st.info("💡 Instagramのレート制限に達しました。しばらく時間をおいてから再試行してください。")
+                        continue
                     
             except Exception as e:
                 st.error(f"#{hashtag_clean}: エラー - {str(e)}")
