@@ -8,8 +8,22 @@ from typing import Callable, Optional
 
 import instaloader
 from instaloader import Hashtag, Post, Profile
+from instaloader.exceptions import (
+    BadResponseException,
+    ConnectionException,
+    LoginRequiredException,
+    ProfileNotExistsException,
+    QueryReturnedBadRequestException,
+    TooManyRequestsException,
+)
 
 from .config import Config
+from .exceptions import (
+    AuthenticationError,
+    FetchError,
+    HashtagNotFoundError,
+    RateLimitError,
+)
 from .models import FetchProgress, InstagramPost, TrendAnalysisResult
 
 
@@ -49,8 +63,16 @@ class InstagramFetcher:
         try:
             self.loader.login(self.config.instagram_username, self.config.instagram_password)
             logger.info(f"Successfully logged in as {self.config.instagram_username}")
+        except LoginRequiredException as e:
+            logger.error(f"Login required but credentials invalid: {e}")
+            raise AuthenticationError(f"Invalid Instagram credentials: {e}")
+        except TooManyRequestsException as e:
+            logger.error(f"Rate limited during login: {e}")
+            raise RateLimitError(f"Rate limited during login: {e}")
+        except (ConnectionException, BadResponseException) as e:
+            logger.warning(f"Connection error during login: {e}. Continuing without login.")
         except Exception as e:
-            logger.warning(f"Failed to login: {e}. Continuing without login.")
+            logger.warning(f"Unexpected error during login: {e}. Continuing without login.")
     
     def _apply_rate_limit_delay(self) -> None:
         """Apply random delay to avoid rate limiting."""
@@ -120,7 +142,13 @@ class InstagramFetcher:
         
         try:
             # Get hashtag object
-            hashtag_obj = Hashtag.from_name(self.loader.context, hashtag)
+            try:
+                hashtag_obj = Hashtag.from_name(self.loader.context, hashtag)
+            except ProfileNotExistsException as e:
+                error_msg = f"Hashtag #{hashtag} not found or doesn't exist"
+                logger.error(error_msg)
+                result.error_messages.append(error_msg)
+                raise HashtagNotFoundError(error_msg) from e
             
             logger.info(f"Fetching posts for #{hashtag}...")
             
@@ -164,10 +192,24 @@ class InstagramFetcher:
             result.total_posts_fetched = posts_fetched
             logger.info(f"Fetched {posts_fetched} posts for #{hashtag}")
             
-        except Exception as e:
-            error_msg = f"Error fetching hashtag #{hashtag}: {str(e)}"
+        except TooManyRequestsException as e:
+            error_msg = f"Rate limited while fetching #{hashtag}: {str(e)}"
             logger.error(error_msg)
             result.error_messages.append(error_msg)
+            raise RateLimitError(error_msg) from e
+        except (ConnectionException, BadResponseException) as e:
+            error_msg = f"Connection error while fetching #{hashtag}: {str(e)}"
+            logger.error(error_msg)
+            result.error_messages.append(error_msg)
+            raise FetchError(error_msg) from e
+        except (HashtagNotFoundError, RateLimitError):
+            # Re-raise our custom exceptions
+            raise
+        except Exception as e:
+            error_msg = f"Unexpected error fetching hashtag #{hashtag}: {str(e)}"
+            logger.error(error_msg)
+            result.error_messages.append(error_msg)
+            raise FetchError(error_msg) from e
         
         return result
     

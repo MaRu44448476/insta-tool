@@ -1,106 +1,216 @@
-# Instagram Trend Research Script
+# Instagram Trend Tool 📊
 
-## 1. 目的 (Purpose)
-指定した期間内におけるハッシュタグ単位の“伸びている”Instagram投稿を収集し、いいね数・コメント数でランキング化して CSV/JSON として出力する。SNS 企画立案や競合分析に活用できるデータを提供する。
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/MaRu44448476/insta-tool)
 
----
+指定した期間内におけるハッシュタグ単位の"伸びている"Instagram投稿を収集し、いいね数・コメント数でランキング化してCSV/JSON/Excelとして出力するツールです。SNS企画立案や競合分析に活用できるデータを提供します。
 
-## 2. 要件定義 (Requirements)
+## ✨ 主な機能
 
-### 2.1 入力仕様 (CLI Parameters)
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `--tags`      | list[str] | ✔ | 対象ハッシュタグ (複数可、`#` 無し) |
-| `--since`     | YYYY-MM-DD |   | 期間開始 (デフォルト: 30日前) |
-| `--until`     | YYYY-MM-DD |   | 期間終了 (デフォルト: 今日) |
-| `--top`       | int |   | 上位 N 件取得 (デフォルト: 50) |
-| `--min-likes` | int |   | 最低いいね数フィルタ (0=無効) |
-| `--output`    | csv / json |   | 出力フォーマット (デフォルト: csv) |
-| `--login`     | flag |   | ログインして取得するか (デフォルト: false) |
-| `--verbose`   | flag |   | 進捗詳細ログ |
+- 🔍 **ハッシュタグベース検索**: 複数のハッシュタグで同時検索
+- 📅 **期間フィルタリング**: 指定した日付範囲での投稿収集
+- 📈 **エンゲージメント分析**: いいね数・コメント数による自動ランキング
+- 📊 **多様な出力形式**: CSV、JSON、Excel形式での出力
+- 💬 **Slack通知**: 分析結果の自動通知
+- ⚙️ **柔軟な設定**: 環境変数・設定ファイルによるカスタマイズ
+- 🛡️ **エラーハンドリング**: レート制限対応と堅牢な例外処理
+- 📝 **詳細ログ**: カラー出力とファイルログ機能
 
-### 2.2 出力仕様
-1. **ファイル**: CSV または JSON (UTF-8-SIG)
-   * 必須列: `post_url`, `shortcode`, `posted_at`, `likes`, `comments`, `owner_username`, `caption`
-2. **CLI 表示**: トップ N 件を表形式で表示
-3. **オプション**: Slack Webhook へ通知
+## 🚀 クイックスタート
 
-### 2.3 機能要件 (Functional)
-F-1 ハッシュタグ検索 → 投稿メタデータ取得  
-F-2 期間フィルタ (`since` / `until`)  
-F-3 エンゲージメント順ソート & 上位 N 件抽出  
-F-4 CSV/JSON エクスポート  
-F-5 CLI オプション受取  
-F-6 進捗・エラーログ  
-F-7 (任意) Slack 通知  
-F-8 (任意) バッチ実行設定読み込み
+### インストール
 
-### 2.4 非機能要件 (Non-Functional)
-* Python 3.10+ / PEP8 準拠
-* 1 タグ 100 件取得で 1 分以内 (NW 依存)
-* `.env` or `config.yml` で設定外部化
-* 仮想環境完結、外部 DB 不要
-* MIT / Apache-2.0 ライブラリのみ使用
-
-### 2.5 技術構成 (Tech Stack)
-* **Language**: Python
-* **Main libs**: instaloader, pandas, dateutil, click (CLI), (optional) slack-sdk
-* **Structure**:
-  ```text
-  insta_trend_tool/
-    |- cli.py        # 引数処理
-    |- fetcher.py    # Instaloader ラッパ
-    |- processor.py  # フィルタ & ソート
-    |- exporter.py   # エクスポート/通知
-  ```
-
----
-
-## 3. 想定課題・リスクと緩和策 (Risks & Mitigations)
-| ID | リスク | 潜在エラー | 主な緩和策 |
-|----|--------|-----------|-----------|
-| 1 | Instagram ブロック / UI 変更 | 429, パース失敗 | 2–5 s ランダム遅延, パーサ集中管理, 3 回リトライ&スキップ |
-| 2 | ログイン必須化 / 認証失効 | LoginRequiredException | デフォルト非ログイン, cookie キャッシュ, 自動再ログイン |
-| 3 | 大量投稿でメモリ枯渇 | OOM | ストリーム処理 + `heapq.nlargest` で上位 N 件のみ保持 |
-| 4 | 無効タグ | ProfileNotExistsException | `try/except` でタグ別に捕捉し警告一覧表示 |
-| 5 | 日付パース & TZ ずれ | 期間外混入 | `dateutil.isoparse`→UTC, 曖昧入力はエラーで例示 |
-| 6 | ファイル書込権限/文字化け | PermissionError, CSV 破損 | 出力前に書込確認, CSV utf-8-sig, JSON `ensure_ascii=False` |
-| 7 | Slack 通知失敗 | HTTP 4xx/5xx | 非同期送信(5 s timeout), 失敗ログ & 再送案内 |
-| 8 | 依存ライブラリ更新 | API 変更 | `requirements.txt` でバージョン固定, CI でサンプル取得テスト |
-| 9 | ユーザー入力ミス | 無効日付, negative top | CLI バリデータ + `validate_args()` で整合性確認 |
-|10 | Unicode/絵文字 | EncodingError | 全文字列 `str()` キャスト, `errors="replace"` で書出 |
-|11 | 未処理例外 | スクリプト強制終了 | `main()` を `try/except Exception` で囲み、`--debug` でスタックトレース |
-
----
-
-## 4. 品質向上のための開発規律 (Coding Practices)
-* **型安全**: `@dataclass` + type hints, `mypy --strict`
-* **静的解析**: `ruff` でコードスタイル & lint
-* **テスト**: pytest + responses モック (HTTP), 辺縁値テスト
-* **CI**: lint → mypy → pytest → サンプルタグ取得テスト
-* **ドキュメント**: README に「よくあるエラーと対処法」を記載
-
----
-
-## 5. スケジュール (Rough)
-| 作業 | 日数 |
-|------|------|
-| 要件定義 | 0.5 |
-| 詳細設計 | 0.5 |
-| 実装 (F-1〜F-6) | 1 |
-| オプション機能 | 0.5 |
-| テスト & README | 0.5 |
-| **合計** | **約 3 日** |
-
----
-
-### CLI Usage Example
 ```bash
-python insta_trend.py \
-  --tags travel food \
-  --since 2025-06-01 --until 2025-06-30 \
-  --top 20 --output json
+# リポジトリをクローン
+git clone https://github.com/MaRu44448476/insta-tool.git
+cd insta-tool
+
+# 仮想環境を作成・有効化
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 依存関係をインストール
+pip install -r requirements.txt
 ```
 
+### 基本的な使用方法
+
+```bash
+# 最小限の実行例
+python insta_trend.py --tags travel
+
+# 複数ハッシュタグで検索
+python insta_trend.py --tags travel --tags food --tags photography
+
+# 期間指定での検索
+python insta_trend.py --tags travel --since 2025-06-01 --until 2025-06-30
+
+# JSON形式で出力
+python insta_trend.py --tags fashion --top 20 --output json
+
+# 最低いいね数でフィルタ
+python insta_trend.py --tags travel --min-likes 1000
+```
+
+## 📋 コマンドオプション
+
+| オプション | 短縮形 | 説明 | デフォルト |
+|-----------|-------|------|-----------|
+| `--tags` | `-t` | 検索するハッシュタグ（#なし、複数指定可） | 必須 |
+| `--since` | | 開始日（YYYY-MM-DD） | 30日前 |
+| `--until` | | 終了日（YYYY-MM-DD） | 今日 |
+| `--top` | `-n` | 取得する上位投稿数 | 50 |
+| `--min-likes` | | 最低いいね数フィルタ | 0 |
+| `--output` | `-o` | 出力形式（csv/json/excel/all） | csv |
+| `--login` | | Instagramログインを使用 | false |
+| `--verbose` | `-v` | 詳細ログを有効化 | false |
+| `--quiet` | `-q` | エラー以外の出力を抑制 | false |
+
+## ⚙️ 設定方法
+
+### 環境変数設定（.env）
+
+```bash
+cp .env.example .env
+```
+
+```env
+# Instagram認証情報（ログインが必要な場合のみ）
+INSTAGRAM_USERNAME=your_username
+INSTAGRAM_PASSWORD=your_password
+
+# Slack通知用Webhook URL
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# デフォルト設定
+DEFAULT_TOP_COUNT=50
+DEFAULT_DAYS_BACK=30
+REQUEST_DELAY_MIN=2
+REQUEST_DELAY_MAX=5
+```
+
+### YAML設定ファイル
+
+```bash
+cp config.yml.example config.yml
+```
+
+詳細な設定オプションについては [USAGE.md](USAGE.md) を参照してください。
+
+## 📊 出力例
+
+### CSV出力
+```
+post_url,shortcode,posted_at,likes,comments,engagement_score,owner_username,caption,hashtags,post_type
+https://instagram.com/p/ABC123/,ABC123,2025-07-01 12:00:00,1500,45,1545,travel_blogger,"Beautiful sunset in Tokyo! #travel #japan",travel, japan,photo
+```
+
+### JSON出力
+```json
+{
+  "metadata": {
+    "export_timestamp": "2025-07-03T13:00:00",
+    "total_posts": 50,
+    "tool_version": "1.0.0"
+  },
+  "posts": [...],
+  "analysis": {
+    "summary": {
+      "total_posts_analyzed": 150,
+      "average_engagement": 892.5,
+      "hashtags_searched": ["travel", "food"]
+    }
+  }
+}
+```
+
+## 🧪 テスト実行
+
+```bash
+# 開発用依存関係をインストール
+pip install -r requirements-dev.txt
+
+# テストを実行
+pytest tests/
+
+# カバレッジレポート付き実行
+pytest tests/ --cov=insta_trend_tool
+```
+
+## 📁 プロジェクト構造
+
+```
+instagram_trend_tool/
+├── insta_trend_tool/          # メインパッケージ
+│   ├── __init__.py
+│   ├── cli.py                 # CLIインターフェース
+│   ├── config.py              # 設定管理
+│   ├── models.py              # データモデル
+│   ├── fetcher.py             # Instagram取得
+│   ├── processor.py           # データ処理
+│   ├── exporter.py            # エクスポート機能
+│   ├── exceptions.py          # カスタム例外
+│   └── logging_config.py      # ログ設定
+├── tests/                     # テストコード
+├── docs/                      # ドキュメント
+├── requirements.txt           # 依存関係
+├── requirements-dev.txt       # 開発用依存関係
+├── setup.py                   # パッケージ設定
+├── USAGE.md                   # 詳細使用方法
+└── CHANGELOG.md               # 変更履歴
+```
+
+## 🚨 よくあるエラーと対処法
+
+### 認証エラー
+```
+🔐 Authentication Error: Invalid Instagram credentials
+```
+**対処法**: `.env`ファイルのInstagram認証情報を確認
+
+### レート制限エラー
+```
+⏱️ Rate Limit Error: Too many requests
+```
+**対処法**: 時間をおいてから再実行、またはリクエスト遅延を増加
+
+詳細なトラブルシューティングは [USAGE.md](USAGE.md) を参照してください。
+
+## 🔧 技術仕様
+
+- **対応Python**: 3.10+
+- **主要ライブラリ**: instaloader, pandas, click
+- **出力形式**: CSV, JSON, Excel
+- **設定方式**: 環境変数, YAML
+- **ログ機能**: ファイルローテーション, カラー出力
+- **テスト**: pytest, カバレッジ測定
+
+## 🤝 コントリビューション
+
+1. このリポジトリをフォーク
+2. フィーチャーブランチを作成 (`git checkout -b feature/AmazingFeature`)
+3. 変更をコミット (`git commit -m 'Add some AmazingFeature'`)
+4. ブランチにプッシュ (`git push origin feature/AmazingFeature`)
+5. プルリクエストを作成
+
+## 📄 ライセンス
+
+このプロジェクトはMITライセンスのもとで公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+
+## 📞 サポート
+
+- 🐛 **バグレポート**: [Issues](https://github.com/MaRu44448476/insta-tool/issues)
+- 💡 **機能提案**: [Issues](https://github.com/MaRu44448476/insta-tool/issues)
+- 📖 **詳細ドキュメント**: [USAGE.md](USAGE.md)
+
+## 🙏 謝辞
+
+このプロジェクトは以下のオープンソースプロジェクトを使用しています：
+- [instaloader](https://instaloader.github.io/) - Instagram APIライブラリ
+- [pandas](https://pandas.pydata.org/) - データ処理ライブラリ
+- [click](https://click.palletsprojects.com/) - CLIフレームワーク
+
 ---
-このドキュメントは要件とリスクを統合して一元管理するための Markdown 版です。CI や GitHub 上のプレビューで可読性を保ちつつ、`spec_risks.yaml` は機械処理用に存続させます。
+
+**⭐ このプロジェクトが役に立った場合は、スターをつけていただけると嬉しいです！**

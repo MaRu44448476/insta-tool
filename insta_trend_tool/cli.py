@@ -10,32 +10,23 @@ import click
 from dateutil.parser import parse as parse_date
 
 from .config import load_config
+from .exceptions import (
+    AuthenticationError,
+    ConfigurationError,
+    ExportError,
+    FetchError,
+    HashtagNotFoundError,
+    RateLimitError,
+    ValidationError,
+)
 from .exporter import TrendExporter
 from .fetcher import InstagramFetcher
+from .logging_config import setup_enhanced_logging
 from .models import FetchProgress
 from .processor import TrendProcessor
 
 
-# Configure logging
-def setup_logging(verbose: bool, log_file: Optional[str] = None) -> None:
-    """Set up logging configuration.
-    
-    Args:
-        verbose: Enable verbose logging
-        log_file: Optional log file path
-    """
-    log_level = logging.DEBUG if verbose else logging.INFO
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
-    handlers = [logging.StreamHandler(sys.stdout)]
-    if log_file:
-        handlers.append(logging.FileHandler(log_file))
-    
-    logging.basicConfig(
-        level=log_level,
-        format=log_format,
-        handlers=handlers,
-    )
+# Use enhanced logging setup
 
 
 def validate_date(ctx, param, value):
@@ -103,6 +94,12 @@ def progress_callback(progress: FetchProgress) -> None:
     help="Enable verbose logging",
 )
 @click.option(
+    "--quiet",
+    "-q",
+    is_flag=True,
+    help="Suppress console output except errors",
+)
+@click.option(
     "--config",
     "-c",
     type=click.Path(exists=True),
@@ -127,6 +124,7 @@ def main(
     output: str,
     login: bool,
     verbose: bool,
+    quiet: bool,
     config: Optional[str],
     no_slack: bool,
     output_dir: Optional[str],
@@ -150,14 +148,23 @@ def main(
         python -m insta_trend_tool.cli --tags photography --min-likes 1000
     """
     # Load configuration
-    app_config = load_config(config)
+    try:
+        app_config = load_config(config)
+    except Exception as e:
+        click.echo(f"❌ Configuration error: {e}", err=True)
+        sys.exit(1)
     
     # Override config with CLI options
     if output_dir:
         app_config.output_dir = Path(output_dir)
     
-    # Set up logging
-    setup_logging(verbose, app_config.log_file)
+    # Set up enhanced logging
+    setup_enhanced_logging(
+        log_level=app_config.log_level,
+        log_file=app_config.log_file,
+        verbose=verbose,
+        quiet=quiet,
+    )
     logger = logging.getLogger(__name__)
     
     # Welcome message
@@ -274,9 +281,36 @@ def main(
     except KeyboardInterrupt:
         click.echo("\n\n⛔ Operation cancelled by user")
         sys.exit(1)
+    except AuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        click.echo(f"\n🔐 Authentication Error: {str(e)}", err=True)
+        click.echo("Please check your Instagram credentials in .env or config file.", err=True)
+        sys.exit(1)
+    except RateLimitError as e:
+        logger.error(f"Rate limit exceeded: {e}")
+        click.echo(f"\n⏱️  Rate Limit Error: {str(e)}", err=True)
+        click.echo("Please wait before retrying or reduce the number of requests.", err=True)
+        sys.exit(1)
+    except HashtagNotFoundError as e:
+        logger.error(f"Hashtag not found: {e}")
+        click.echo(f"\n🔍 Hashtag Error: {str(e)}", err=True)
+        click.echo("Please check the hashtag spelling and try again.", err=True)
+        sys.exit(1)
+    except (FetchError, ExportError) as e:
+        logger.error(f"Operation failed: {e}")
+        click.echo(f"\n❌ Error: {str(e)}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        click.echo(f"\n📋 Validation Error: {str(e)}", err=True)
+        sys.exit(1)
     except Exception as e:
         logger.exception("Unexpected error occurred")
-        click.echo(f"\n❌ Error: {str(e)}", err=True)
+        click.echo(f"\n💥 Unexpected Error: {str(e)}", err=True)
+        click.echo("This may be a bug. Please report it with the --verbose flag output.", err=True)
         if verbose:
             import traceback
             traceback.print_exc()
