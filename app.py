@@ -4,13 +4,13 @@ Instagram Trend Tool - Streamlit Web App
 """
 
 import streamlit as st
-import subprocess
 import pandas as pd
 from datetime import datetime, timedelta
 import os
 import json
 from pathlib import Path
 import time
+import logging
 
 # Optional imports with fallbacks
 try:
@@ -18,6 +18,19 @@ try:
     DOTENV_AVAILABLE = True
 except ImportError:
     DOTENV_AVAILABLE = False
+
+# Instagram分析のための直接インポート
+try:
+    import instaloader
+    from insta_trend_tool.config import Config
+    from insta_trend_tool.models import AnalysisResult, PostData
+    from insta_trend_tool.fetcher import InstagramFetcher
+    from insta_trend_tool.processor import DataProcessor
+    from insta_trend_tool.exporter import DataExporter
+    INSTA_MODULES_AVAILABLE = True
+except ImportError as e:
+    INSTA_MODULES_AVAILABLE = False
+    st.error(f"必要なモジュールが見つかりません: {e}")
 
 try:
     import yaml
@@ -83,35 +96,72 @@ def init_output_dir():
 
 def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
     """Instagram分析を実行"""
+    if not INSTA_MODULES_AVAILABLE:
+        return False, "", "必要なモジュールが利用できません"
+    
     try:
-        # コマンド構築
-        cmd = ["python", "insta_trend.py"]
+        # 設定の初期化
+        config = Config()
         
-        # ハッシュタグ追加
-        for tag in hashtags:
-            cmd.extend(["--tags", tag.strip()])
-        
-        # その他オプション
-        cmd.extend(["--top", str(top_count)])
-        cmd.extend(["--output", output_format])
-        cmd.extend(["--quiet"])  # 静かに実行
-        
-        # 期間設定
+        # データ収集期間の計算
+        since_date = None
         if period_days > 0:
-            since_date = (datetime.now() - timedelta(days=period_days)).strftime("%Y-%m-%d")
-            cmd.extend(["--since", since_date])
+            since_date = datetime.now() - timedelta(days=period_days)
         
-        # 最小いいね数
+        # 分析結果を格納するリスト
+        all_posts = []
+        
+        # 各ハッシュタグについて分析
+        fetcher = InstagramFetcher(config)
+        processor = DataProcessor(config)
+        
+        for hashtag in hashtags:
+            # ハッシュタグからデータ取得
+            hashtag_clean = hashtag.strip().replace('#', '')
+            
+            try:
+                result = fetcher.fetch_hashtag_posts(
+                    hashtag_clean, 
+                    top_count, 
+                    since_date
+                )
+                
+                if result.posts:
+                    all_posts.extend(result.posts)
+                    
+            except Exception as e:
+                continue
+        
+        if not all_posts:
+            return False, "", "投稿データが取得できませんでした"
+        
+        # データ処理
+        analysis_result = AnalysisResult(
+            hashtags=hashtags,
+            posts=all_posts,
+            total_posts=len(all_posts),
+            collection_date=datetime.now()
+        )
+        
+        # 最小いいね数でフィルタリング
         if min_likes > 0:
-            cmd.extend(["--min-likes", str(min_likes)])
+            analysis_result.posts = [
+                post for post in analysis_result.posts 
+                if post.likes >= min_likes
+            ]
         
-        # 実行
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=".")
+        # 処理とソート
+        processed_result = processor.process_posts(analysis_result)
         
-        return result.returncode == 0, result.stdout, result.stderr
+        # エクスポート
+        exporter = DataExporter(config)
+        output_path = exporter.export_data(processed_result, output_format)
+        
+        return True, f"分析完了: {len(processed_result.posts)}件の投稿を処理", ""
         
     except Exception as e:
-        return False, "", str(e)
+        logging.error(f"分析エラー: {str(e)}")
+        return False, "", f"分析エラー: {str(e)}"
 
 def get_latest_output_file(output_format):
     """最新の出力ファイルを取得"""
@@ -257,7 +307,7 @@ if st.button("🚀 分析開始", type="primary", use_container_width=True):
                 progress_bar.progress(30)
                 
                 # 分析実行
-                success, stdout, stderr = run_analysis(
+                success, message, error = run_analysis(
                     hashtag_list, custom_days, top_count, output_format, min_likes
                 )
                 
@@ -273,7 +323,7 @@ if st.button("🚀 分析開始", type="primary", use_container_width=True):
                 
                 if success:
                     status_text.markdown("✅ **分析完了！**")
-                    st.success("🎉 分析が完了しました！")
+                    st.success(f"🎉 {message}")
                     
                     # 結果ファイル取得
                     result_file = get_latest_output_file(output_format)
@@ -359,17 +409,17 @@ if st.button("🚀 分析開始", type="primary", use_container_width=True):
                             )
                         
                         # 詳細ログ表示（デバッグ用）
-                        if verbose_mode and stdout:
+                        if verbose_mode and message:
                             with st.expander("📋 詳細ログを表示"):
-                                st.text(stdout)
+                                st.text(message)
                     else:
                         st.warning("⚠️ 結果ファイルが見つかりませんでした。")
-                        if stderr:
-                            st.error(f"エラー詳細: {stderr}")
+                        if error:
+                            st.error(f"エラー詳細: {error}")
                 else:
                     st.error("❌ 分析中にエラーが発生しました")
-                    if stderr:
-                        st.error(f"**エラー詳細:** {stderr}")
+                    if error:
+                        st.error(f"**エラー詳細:** {error}")
                     
                     # よくあるエラーの対処法
                     st.markdown("""
