@@ -120,7 +120,7 @@ def init_output_dir():
     output_dir.mkdir(exist_ok=True)
     return output_dir
 
-def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0, demo_mode=False):
+def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0, demo_mode=False, username=None, password=None):
     """Instagram分析を実行"""
     if not INSTA_MODULES_AVAILABLE:
         return False, "", "必要なモジュールが利用できません"
@@ -128,6 +128,11 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0, d
     try:
         # 設定の初期化
         config = Config()
+        
+        # 認証情報が提供されている場合は設定
+        if not demo_mode and username:
+            config.instagram_username = username
+            config.instagram_password = password
         
         # データ収集期間の計算
         since_date = None
@@ -302,6 +307,29 @@ def format_number(num):
 st.title("📊 Instagram Trend Analyzer")
 st.markdown("**スマホからでも簡単にInstagramトレンド分析！**")
 
+# 現状説明
+with st.expander("ℹ️ 現在の状況について", expanded=False):
+    st.markdown("""
+    **📢 重要なお知らせ**
+    
+    Instagramは2024年より認証なしでのデータアクセスを大幅に制限しました。
+    
+    **現在の利用方法：**
+    - ✅ **デモモード（推奨）**: サンプルデータで機能を確認
+    - ⚠️ **実際のAPI**: Instagram認証が必要（制限あり）
+    
+    **デモモードの特徴：**
+    - 実際のInstagram投稿に似たダミーデータを生成
+    - 分析機能とエクスポート機能の完全テスト
+    - ハッシュタグごとに異なるサンプルデータ
+    - CSVダウンロードも正常動作
+    
+    **今後の対応予定：**
+    - Instagram Graph API対応
+    - 他のSNSプラットフォーム対応
+    - より安定したデータ取得方法の検討
+    """)
+
 # 出力ディレクトリ初期化
 output_dir = init_output_dir()
 
@@ -310,7 +338,19 @@ with st.sidebar:
     st.header("⚙️ 詳細設定")
     
     # デモモード切り替え
-    demo_mode = st.checkbox("デモモード", value=False, help="実際のAPIでエラーが発生する場合はこちらを有効にしてください")
+    demo_mode = st.checkbox("デモモード（推奨）", value=True, help="Instagram APIの制限により、現在はデモモードでの利用を推奨します")
+    
+    if not demo_mode:
+        st.warning("⚠️ 実際のInstagram APIは現在ログインが必要です")
+        
+        # Instagram認証オプション
+        use_auth = st.checkbox("Instagram認証を使用")
+        if use_auth:
+            st.info("📝 Instagram認証設定（管理者のみ）")
+            username = st.text_input("Instagramユーザー名", type="default")
+            password = st.text_input("Instagramパスワード", type="password")
+        else:
+            username = password = None
     
     advanced_mode = st.checkbox("詳細設定を表示")
     
@@ -416,8 +456,15 @@ if st.button("🚀 分析開始", type="primary", use_container_width=True):
                 progress_bar.progress(30)
                 
                 # 分析実行
+                # 認証情報を取得（demo_mode=Falseの場合のみ）
+                auth_username = auth_password = None
+                if not demo_mode and 'use_auth' in locals() and use_auth:
+                    auth_username = username if 'username' in locals() else None
+                    auth_password = password if 'password' in locals() else None
+                
                 success, message, error = run_analysis(
-                    hashtag_list, custom_days, top_count, output_format, min_likes, demo_mode
+                    hashtag_list, custom_days, top_count, output_format, 
+                    min_likes, demo_mode, auth_username, auth_password
                 )
                 
                 progress_bar.progress(70)
