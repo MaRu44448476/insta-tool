@@ -1,0 +1,6 @@
+# Minimal requirements for Streamlit Cloud
+streamlit
+instaloader
+pandas
+python-dateutil
+openpyxl

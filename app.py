@@ -12,6 +12,19 @@ import json
 from pathlib import Path
 import time
 
+# Optional imports with fallbacks
+try:
+    from dotenv import load_dotenv
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
+
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
 # スマホ対応の設定
 st.set_page_config(
     page_title="Instagram Trend Tool",
