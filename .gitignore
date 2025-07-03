@@ -37,9 +37,9 @@ env/
 *~
 
 # Output files
-*.csv
-*.json
-output/
+output/*.csv
+output/*.json
+output/*.xlsx
 
 # Logs
 *.log
@@ -47,3 +47,6 @@ logs/
 
 # Instagram session
 session-*
+
+# Streamlit
+.streamlit/secrets.toml
