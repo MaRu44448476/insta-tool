@@ -20,17 +20,63 @@ except ImportError:
     DOTENV_AVAILABLE = False
 
 # Instagram分析のための直接インポート
+INSTA_MODULES_AVAILABLE = False
+IMPORT_ERROR_MSG = ""
+
 try:
     import instaloader
+    st.info("✅ instaloader インポート成功")
+except ImportError as e:
+    IMPORT_ERROR_MSG += f"❌ instaloader: {e}\n"
+
+try:
     from insta_trend_tool.config import Config
+    st.info("✅ config インポート成功")
+except ImportError as e:
+    IMPORT_ERROR_MSG += f"❌ config: {e}\n"
+
+try:
     from insta_trend_tool.models import AnalysisResult, PostData
+    st.info("✅ models インポート成功")
+except ImportError as e:
+    IMPORT_ERROR_MSG += f"❌ models: {e}\n"
+
+try:
     from insta_trend_tool.fetcher import InstagramFetcher
+    st.info("✅ fetcher インポート成功")
+except ImportError as e:
+    IMPORT_ERROR_MSG += f"❌ fetcher: {e}\n"
+
+try:
     from insta_trend_tool.processor import DataProcessor
+    st.info("✅ processor インポート成功")
+except ImportError as e:
+    IMPORT_ERROR_MSG += f"❌ processor: {e}\n"
+
+try:
     from insta_trend_tool.exporter import DataExporter
+    st.info("✅ exporter インポート成功")
     INSTA_MODULES_AVAILABLE = True
 except ImportError as e:
-    INSTA_MODULES_AVAILABLE = False
-    st.error(f"必要なモジュールが見つかりません: {e}")
+    IMPORT_ERROR_MSG += f"❌ exporter: {e}\n"
+
+if IMPORT_ERROR_MSG:
+    st.error(f"モジュールインポートエラー:\n{IMPORT_ERROR_MSG}")
+    st.info("デバッグ: 現在の作業ディレクトリとPythonパスを確認中...")
+    
+    # デバッグ情報表示
+    import sys
+    st.write("Python path:", sys.path)
+    st.write("Current working directory:", os.getcwd())
+    
+    # ディレクトリ構造確認
+    try:
+        import glob
+        st.write("ファイル一覧:", glob.glob("*"))
+        if os.path.exists("insta_trend_tool"):
+            st.write("insta_trend_tool内容:", glob.glob("insta_trend_tool/*"))
+    except Exception as e:
+        st.write(f"ディレクトリ確認エラー: {e}")
 
 try:
     import yaml
