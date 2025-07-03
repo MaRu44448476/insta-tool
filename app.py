@@ -249,15 +249,20 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
         # エクスポート
         exporter = TrendExporter(config)
         
-        # 出力形式に応じてエクスポート
-        if output_format == "csv":
+        # 出力形式に応じてエクスポート（デモ版では一旦CSVのみ）
+        try:
+            if output_format == "csv":
+                output_path = exporter.export_to_csv(processed_result)
+            elif output_format == "json":
+                output_path = exporter.export_to_json(processed_result)
+            else:
+                # Excel は問題があるため、一旦CSVにフォールバック
+                st.warning("Excel形式で問題が発生したため、CSV形式で出力します")
+                output_path = exporter.export_to_csv(processed_result)
+        except Exception as export_error:
+            st.error(f"エクスポートエラー: {export_error}")
+            # 最後の手段としてCSVでリトライ
             output_path = exporter.export_to_csv(processed_result)
-        elif output_format == "excel":
-            output_path = exporter.export_to_excel(processed_result)
-        elif output_format == "json":
-            output_path = exporter.export_to_json(processed_result)
-        else:
-            output_path = exporter.export_to_csv(processed_result)  # デフォルト
         
         return True, f"分析完了: {len(processed_result.posts)}件の投稿を処理", ""
         
