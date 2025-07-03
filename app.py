@@ -155,11 +155,11 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
             since_date = datetime.now() - timedelta(days=period_days)
         
         # 分析結果を格納するリスト
-        all_posts = []
+        analysis_results = []
         
         # 各ハッシュタグについて分析
         fetcher = InstagramFetcher(config)
-        processor = TrendProcessor(config)
+        processor = TrendProcessor()
         
         for hashtag in hashtags:
             # ハッシュタグからデータ取得
@@ -173,31 +173,32 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
                 )
                 
                 if result.posts:
-                    all_posts.extend(result.posts)
+                    analysis_results.append(result)
                     
             except Exception as e:
                 continue
         
-        if not all_posts:
+        if not analysis_results:
             return False, "", "投稿データが取得できませんでした"
         
-        # データ処理
-        analysis_result = TrendAnalysisResult(
+        # 最小いいね数を考慮してトレンド分析
+        trend_analysis = processor.analyze_trends(
+            analysis_results,
+            top_n=top_count,
+            min_likes=min_likes if min_likes > 0 else None
+        )
+        
+        # 結果の構造を作成（エクスポート用）
+        all_posts = processor.merge_results(analysis_results)
+        if min_likes > 0:
+            all_posts = [post for post in all_posts if post.likes >= min_likes]
+        
+        processed_result = TrendAnalysisResult(
             hashtags=hashtags,
-            posts=all_posts,
+            posts=all_posts[:top_count],  # 上位のみ
             total_posts=len(all_posts),
             collection_date=datetime.now()
         )
-        
-        # 最小いいね数でフィルタリング
-        if min_likes > 0:
-            analysis_result.posts = [
-                post for post in analysis_result.posts 
-                if post.likes >= min_likes
-            ]
-        
-        # 処理とソート
-        processed_result = processor.process_posts(analysis_result)
         
         # エクスポート
         exporter = TrendExporter(config)
