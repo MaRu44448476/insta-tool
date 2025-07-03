@@ -1,2 +1,2 @@
-# System dependencies for Streamlit Cloud
-# These packages will be installed using apt-get
+python3-dev
+build-essential
