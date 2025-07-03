@@ -189,11 +189,14 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
                         dummy_posts.append(post)
                     
                     # ダミー結果を作成
+                    start_date = datetime.now() - timedelta(days=period_days or 30)
+                    end_date = datetime.now()
                     result = TrendAnalysisResult(
-                        hashtags=[hashtag_clean],
-                        posts=dummy_posts,
-                        total_posts=len(dummy_posts),
-                        collection_date=datetime.now()
+                        hashtag=hashtag_clean,
+                        start_date=start_date,
+                        end_date=end_date,
+                        total_posts_fetched=len(dummy_posts),
+                        posts=dummy_posts
                     )
                     
                     st.success(f"#{hashtag_clean}: {len(result.posts)}件取得（デモデータ）")
@@ -231,11 +234,16 @@ def run_analysis(hashtags, period_days, top_count, output_format, min_likes=0):
         if min_likes > 0:
             all_posts = [post for post in all_posts if post.likes >= min_likes]
         
+        # エクスポート用の統合結果を作成
+        combined_hashtag = ",".join(hashtags)
+        start_date = datetime.now() - timedelta(days=period_days or 30)
+        end_date = datetime.now()
         processed_result = TrendAnalysisResult(
-            hashtags=hashtags,
-            posts=all_posts[:top_count],  # 上位のみ
-            total_posts=len(all_posts),
-            collection_date=datetime.now()
+            hashtag=combined_hashtag,
+            start_date=start_date,
+            end_date=end_date,
+            total_posts_fetched=len(all_posts),
+            posts=all_posts[:top_count]  # 上位のみ
         )
         
         # エクスポート
