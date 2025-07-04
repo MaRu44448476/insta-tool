@@ -54,6 +54,15 @@ try:
 except ImportError as e:
     IMPORT_ERROR_MSG += f"❌ exporter: {e}\n"
 
+# Twitter対応モジュール
+try:
+    from insta_trend_tool.twitter_fetcher import TwitterFetcher, TwitterPost
+    import tweepy
+    TWITTER_MODULES_AVAILABLE = True
+except ImportError as e:
+    TWITTER_MODULES_AVAILABLE = False
+    logger.info(f"Twitter modules not available: {e}")
+
 if IMPORT_ERROR_MSG:
     st.error(f"必要なモジュールの読み込みに失敗しました:\n{IMPORT_ERROR_MSG}")
     st.stop()

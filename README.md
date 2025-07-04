@@ -3,6 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/MaRu44448476/insta-tool)
+[![CI](https://github.com/MaRu44448476/insta-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/MaRu44448476/insta-tool/actions/workflows/ci.yml)
 
 指定した期間内におけるハッシュタグ単位の"伸びている"Instagram投稿を収集し、いいね数・コメント数でランキング化してCSV/JSON/Excelとして出力するツールです。SNS企画立案や競合分析に活用できるデータを提供します。
 
